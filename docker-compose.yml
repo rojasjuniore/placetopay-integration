@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  placetopay-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: placetopay-integration
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # PlaceToPay Configuration
+      PLACETOPAY_LOGIN: ${PLACETOPAY_LOGIN}
+      PLACETOPAY_SECRET_KEY: ${PLACETOPAY_SECRET_KEY}
+      PLACETOPAY_BASE_URL: ${PLACETOPAY_BASE_URL:-https://checkout-test.placetopay.com}
+
+      # Application
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+
+      # URLs
+      RETURN_URL: ${RETURN_URL:-http://localhost:3000/checkout/return}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits (opcional)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Opcional: Base de datos PostgreSQL
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: placetopay-db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: placetopay
+  #     POSTGRES_USER: placetopay
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U placetopay"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# volumes:
+#   postgres_data:
+
+networks:
+  default:
+    name: placetopay-network

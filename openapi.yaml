@@ -1,0 +1,449 @@
+openapi: 3.0.3
+info:
+  title: PlaceToPay Integration API
+  description: |
+    API completa para integración con PlaceToPay Checkout.
+
+    Esta API permite crear sesiones de pago, consultar su estado y recibir notificaciones webhook de PlaceToPay.
+
+    ## Características
+    - Autenticación segura con SHA-256
+    - Creación de sesiones de pago
+    - Consulta de estado de transacciones
+    - Webhook para notificaciones
+    - Soporte para reversos (devoluciones)
+
+    ## Seguridad
+    La API se conecta a PlaceToPay usando autenticación basada en:
+    - Login (identificador del sitio)
+    - Secret Key (clave secreta)
+    - TranKey generado con SHA-256
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/rojasjuniore/placetopay-integration
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Servidor de desarrollo
+  - url: https://api.tu-dominio.com
+    description: Servidor de producción
+
+tags:
+  - name: Checkout
+    description: Operaciones de checkout y pagos
+  - name: Health
+    description: Endpoints de salud y estado del servicio
+  - name: Webhook
+    description: Recepción de notificaciones de PlaceToPay
+
+paths:
+  /:
+    get:
+      summary: Root endpoint
+      description: Retorna información básica de la API y lista de endpoints disponibles
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Información de la API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: PlaceToPay Integration API
+                  version:
+                    type: string
+                    example: 1.0.0
+                  endpoints:
+                    type: object
+
+  /health:
+    get:
+      summary: Health check
+      description: Verifica el estado del servicio
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  timestamp:
+                    type: string
+                    format: date-time
+                  environment:
+                    type: string
+                    example: development
+
+  /api/checkout/create:
+    post:
+      summary: Crear sesión de pago
+      description: |
+        Crea una nueva sesión de pago en PlaceToPay.
+
+        Retorna un `requestId` y `processUrl` que debe usarse para redirigir al usuario a la interfaz de pago.
+      tags:
+        - Checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payment
+              properties:
+                payment:
+                  type: object
+                  required:
+                    - reference
+                    - description
+                    - amount
+                  properties:
+                    reference:
+                      type: string
+                      maxLength: 32
+                      description: Referencia única del pago
+                      example: ORDER-12345
+                    description:
+                      type: string
+                      maxLength: 250
+                      description: Descripción del pago
+                      example: Compra de producto XYZ
+                    amount:
+                      type: object
+                      required:
+                        - currency
+                        - total
+                      properties:
+                        currency:
+                          type: string
+                          description: Código de moneda ISO 4217
+                          example: USD
+                        total:
+                          type: number
+                          format: float
+                          description: Monto total a pagar
+                          example: 100.50
+                buyer:
+                  type: object
+                  description: Información del comprador (opcional, editable por el usuario)
+                  properties:
+                    name:
+                      type: string
+                      example: John
+                    surname:
+                      type: string
+                      example: Doe
+                    email:
+                      type: string
+                      format: email
+                      example: john.doe@example.com
+                    mobile:
+                      type: string
+                      example: +573001234567
+                    document:
+                      type: string
+                      example: 1234567890
+                    documentType:
+                      type: string
+                      example: CC
+                    address:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                        city:
+                          type: string
+                        state:
+                          type: string
+                        postalCode:
+                          type: string
+                        country:
+                          type: string
+                payer:
+                  type: object
+                  description: Información del pagador (opcional, NO editable por el usuario)
+                  properties:
+                    name:
+                      type: string
+                    surname:
+                      type: string
+                    email:
+                      type: string
+                      format: email
+                    mobile:
+                      type: string
+                    document:
+                      type: string
+                    documentType:
+                      type: string
+      responses:
+        '200':
+          description: Sesión creada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  requestId:
+                    type: integer
+                    description: ID de la sesión creada
+                    example: 123456
+                  processUrl:
+                    type: string
+                    format: uri
+                    description: URL para redirigir al usuario al checkout
+                    example: https://checkout-test.placetopay.com/session/123456/abc...
+                  status:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [OK, FAILED, PENDING]
+                        example: OK
+                      reason:
+                        type: string
+                        example: PC
+                      message:
+                        type: string
+                        example: La petición se ha procesado correctamente
+                      date:
+                        type: string
+                        format: date-time
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/checkout/status/{requestId}:
+    get:
+      summary: Consultar estado de sesión
+      description: |
+        Consulta el estado actual de una sesión de pago.
+
+        Retorna información completa incluyendo el estado del pago, datos del comprador y detalles de la transacción.
+      tags:
+        - Checkout
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: ID de la sesión a consultar
+          schema:
+            type: integer
+            example: 123456
+      responses:
+        '200':
+          description: Estado de la sesión
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  session:
+                    type: object
+                    properties:
+                      requestId:
+                        type: integer
+                        example: 123456
+                      status:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [PENDING, APPROVED, REJECTED]
+                            example: APPROVED
+                          reason:
+                            type: string
+                          message:
+                            type: string
+                          date:
+                            type: string
+                            format: date-time
+                      request:
+                        type: object
+                        description: Datos originales de la petición
+                      payment:
+                        type: array
+                        description: Transacciones asociadas a la sesión
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: object
+                            reference:
+                              type: string
+                            amount:
+                              type: object
+                            authorization:
+                              type: string
+                            receipt:
+                              type: string
+        '400':
+          description: requestId inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /checkout/return:
+    get:
+      summary: Página de retorno
+      description: |
+        Endpoint al que PlaceToPay redirige al usuario después de completar el proceso de pago.
+
+        Debe configurarse como `returnUrl` al crear la sesión.
+      tags:
+        - Checkout
+      parameters:
+        - name: requestId
+          in: query
+          required: true
+          description: ID de la sesión
+          schema:
+            type: integer
+            example: 123456
+      responses:
+        '200':
+          description: Información del pago procesado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  requestId:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [APPROVED, REJECTED, PENDING]
+                  session:
+                    type: object
+        '400':
+          description: requestId inválido
+
+  /webhook/placetopay:
+    post:
+      summary: Webhook de PlaceToPay
+      description: |
+        Endpoint para recibir notificaciones de PlaceToPay cuando cambia el estado de una sesión.
+
+        **IMPORTANTE:**
+        - PlaceToPay hace UN SOLO intento de envío
+        - Debe responder con 2xx lo más rápido posible
+        - La URL debe ser HTTPS en producción
+        - Validación de signature obligatoria
+
+        **Configuración:**
+        Debe configurarse en el panel de PlaceToPay como URL de notificación.
+      tags:
+        - Webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - requestId
+                - status
+                - reference
+                - signature
+              properties:
+                requestId:
+                  type: integer
+                  description: ID de la sesión
+                  example: 123456
+                status:
+                  type: object
+                  required:
+                    - status
+                    - date
+                  properties:
+                    status:
+                      type: string
+                      enum: [APPROVED, REJECTED, PENDING]
+                      example: APPROVED
+                    reason:
+                      type: string
+                      example: '00'
+                    message:
+                      type: string
+                      example: Aprobada
+                    date:
+                      type: string
+                      format: date-time
+                      example: '2024-01-15T10:30:00-05:00'
+                reference:
+                  type: string
+                  description: Referencia de la transacción
+                  example: ORDER-12345
+                signature:
+                  type: string
+                  description: Firma SHA-1 para validación
+                  example: abc123def456...
+      responses:
+        '200':
+          description: Webhook recibido y procesado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Mensaje de error
+        message:
+          type: string
+          description: Detalles del error
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API Key para autenticación (si aplica)

@@ -11,6 +11,9 @@ Integración completa con la pasarela de pagos PlaceToPay Checkout API utilizand
 - ✅ Soporte para reversos (devoluciones)
 - ✅ TypeScript para type-safety
 - ✅ Arquitectura modular y escalable
+- ✅ Documentación interactiva con Redoc
+- ✅ Docker y Docker Compose ready
+- ✅ Health checks integrados
 
 ## 📋 Requisitos Previos
 
@@ -63,6 +66,31 @@ npm run dev
 npm run build
 npm start
 ```
+
+### Con Docker
+
+```bash
+# Usando Docker Compose
+docker-compose up -d
+
+# Ver documentación completa
+# Ver DOCKER.md para más detalles
+```
+
+## 📖 Documentación API
+
+La API incluye documentación interactiva con Redoc:
+
+**URL de documentación:** http://localhost:3001/docs
+
+La documentación incluye:
+- Descripción detallada de todos los endpoints
+- Esquemas de request/response
+- Ejemplos de uso
+- Códigos de estado HTTP
+- Especificación OpenAPI 3.0
+
+También disponible en formato JSON: http://localhost:3001/docs/openapi.json
 
 ## 📡 API Endpoints
 

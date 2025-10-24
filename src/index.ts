@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from 'express';
 import { appConfig } from './config/placetopay.config';
 import checkoutRoutes from './routes/checkout.routes';
 import webhookRoutes from './routes/webhook.routes';
+import docsRoutes from './routes/docs.routes';
 
 const app: Express = express();
 
@@ -19,6 +20,7 @@ app.use((req: Request, _res: Response, next) => {
 app.use('/api/checkout', checkoutRoutes);
 app.use('/checkout', checkoutRoutes);
 app.use('/webhook', webhookRoutes);
+app.use('/docs', docsRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -34,6 +36,7 @@ app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     message: 'PlaceToPay Integration API',
     version: '1.0.0',
+    documentation: 'GET /docs',
     endpoints: {
       createCheckout: 'POST /api/checkout/create',
       checkStatus: 'GET /api/checkout/status/:requestId',
@@ -71,6 +74,7 @@ app.listen(appConfig.port, () => {
   console.log(`URL: http://localhost:${appConfig.port}`);
   console.log('===========================================');
   console.log('Endpoints:');
+  console.log(`  GET    /docs - API Documentation`);
   console.log(`  POST   /api/checkout/create`);
   console.log(`  GET    /api/checkout/status/:requestId`);
   console.log(`  GET    /checkout/return?requestId=123`);
